@@ -19,6 +19,17 @@ Audio is written to a temp directory and deleted as soon as each file is uploade
 The new playlist appears in your Yoto library. Linking it to a physical MYO card
 still has to happen on the Player — Yoto has no API for the NFC bind.
 
+## Published image
+
+Every push builds and pushes to GHCR:
+
+- `ghcr.io/orenmazor/send-to-yoto:YYYY.MM.DD-<short sha>` — every commit
+- `ghcr.io/orenmazor/send-to-yoto:latest` — `main` only
+
+Built for `linux/amd64` and `linux/arm64`. The arm64 leg runs under QEMU; if you
+only deploy on amd64, drop that platform and the `setup-qemu-action` step from
+`.github/workflows/docker.yml`.
+
 ## Configuration
 
 All configuration is environment variables; see `.env.example`. Nothing is read
