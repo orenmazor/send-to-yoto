@@ -1,0 +1,5 @@
+.env
+.autoenv.zsh
+__pycache__/
+*.pyc
+tokens.json

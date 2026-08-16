@@ -1,0 +1,15 @@
+services:
+  send-to-yoto:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      YOTO_CLIENT_ID: ${YOTO_CLIENT_ID:?set YOTO_CLIENT_ID}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8080}
+      YOTO_SCOPES: ${YOTO_SCOPES:-offline_access user:content:manage}
+      YOTO_CLIENT_SECRET: ${YOTO_CLIENT_SECRET:-}
+    volumes:
+      - config:/config
+
+volumes:
+  config:

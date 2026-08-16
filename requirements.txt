@@ -1,0 +1,8 @@
+flask==3.1.0
+gunicorn==23.0.0
+requests==2.32.3
+# YouTube extraction breaks as YouTube changes. Expect to bump this often.
+yt-dlp==2026.7.4
+# The JS bundle yt-dlp runs on deno to solve YouTube's player challenge. Without
+# it, extraction fails with "The page needs to be reloaded."
+yt-dlp-ejs==0.8.0

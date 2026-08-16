@@ -1,0 +1,57 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>send-to-yoto</title>
+  <style>
+    body { font: 16px/1.5 system-ui, sans-serif; max-width: 40rem; margin: 4rem auto; padding: 0 1rem; }
+    input, button { font: inherit; padding: .6rem; }
+    input { width: 100%; box-sizing: border-box; }
+    button { margin-top: .75rem; cursor: pointer; }
+    #status { margin-top: 1.5rem; white-space: pre-wrap; }
+    progress { width: 100%; }
+    .muted { color: #666; }
+  </style>
+</head>
+<body>
+  <h1>send-to-yoto</h1>
+
+  <div id="auth" {% if authed %}hidden{% endif %}>
+    <p>Not connected to Yoto.</p>
+    <a href="/login"><button type="button">Connect Yoto account</button></a>
+  </div>
+
+  <form id="form" onsubmit="submitUrl(event)" {% if not authed %}hidden{% endif %}>
+    <input name="url" id="url" placeholder="https://www.youtube.com/playlist?list=..." autofocus>
+    <button type="submit">Send to Yoto</button>
+  </form>
+
+  <div id="status"></div>
+  <progress id="bar" hidden></progress>
+
+<script>
+async function submitUrl(e) {
+  e.preventDefault();
+  const url = document.getElementById('url').value;
+  const r = await (await fetch('/submit', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({url})
+  })).json();
+  if (r.error) { document.getElementById('status').textContent = r.error; return; }
+  poll();
+}
+
+async function poll() {
+  const j = await (await fetch('/status')).json();
+  document.getElementById('status').textContent =
+    `${j.state}: ${j.message}` + (j.total ? ` (${j.done}/${j.total})` : '');
+  const bar = document.getElementById('bar');
+  bar.hidden = j.state !== 'running' || !j.total;
+  bar.max = j.total; bar.value = j.done;
+  if (j.state === 'running') setTimeout(poll, 1500);
+}
+poll();
+</script>
+</body>
+</html>
