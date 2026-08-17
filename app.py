@@ -8,6 +8,8 @@ import base64
 import hashlib
 import json
 import os
+import random
+import re
 import secrets
 import tempfile
 import threading
@@ -25,11 +27,21 @@ CLIENT_ID = os.environ.get("YOTO_CLIENT_ID")
 # Only set this for a Confidential Client. Public clients authenticate with PKCE
 # alone and must not send a secret.
 CLIENT_SECRET = os.environ.get("YOTO_CLIENT_SECRET")
-SCOPES = os.environ.get("YOTO_SCOPES", "offline_access user:content:manage")
+# user:content:view is granted automatically alongside user:content:manage, so
+# asking for it costs no extra privilege and lets us read cards back.
+SCOPES = os.environ.get(
+    "YOTO_SCOPES", "offline_access user:content:manage user:content:view"
+)
 TOKEN_FILE = os.environ.get("YOTO_TOKEN_FILE")  # optional, for surviving restarts
+# Used only when the public icon list can't be fetched or matched.
 DEFAULT_ICON = os.environ.get(
     "YOTO_DEFAULT_ICON", "yoto:#aUm9i3ex3qqAMYBv-i-O-pYMKuMJGICtR3Vhf289u2Q"
 )
+# YouTube title noise that would otherwise match icons at random.
+TITLE_NOISE = {
+    "official", "audio", "video", "lyrics", "lyric", "full", "episode", "hd",
+    "the", "and", "for", "with", "feat", "ft", "remastered", "version", "live",
+}
 MAX_TRACKS = int(os.environ.get("MAX_TRACKS", "100"))  # Yoto hard cap
 # Where this app is reachable. Must match an Allowed Callback URL in the Yoto
 # dashboard, with /callback appended.
@@ -70,6 +82,10 @@ def _store_token_response(data):
     tok = dict(_tokens)
     tok["access_token"] = data["access_token"]
     tok["expires_at"] = time.time() + data.get("expires_in", 3600) - 60
+    # Recorded because a refresh returns the scopes the token was minted with,
+    # not whatever SCOPES currently says. Surfaced on /healthz.
+    if data.get("scope"):
+        tok["scope"] = data["scope"]
     if data.get("refresh_token"):
         tok["refresh_token"] = data["refresh_token"]
     _save_tokens(tok)
@@ -182,7 +198,56 @@ def upload_audio(path):
     raise RuntimeError(f"transcode timed out for {path.name}")
 
 
-def build_chapter(index, title, sha, info):
+# --------------------------------------------------------------------------
+# Icons. Yoto publishes a list of icons every account can reference directly by
+# mediaId, so there's nothing to upload -- we just pick one per track.
+# --------------------------------------------------------------------------
+
+_icon_cache = []
+
+
+def public_icons():
+    """Yoto's public icon list, fetched once per process. [] if unavailable."""
+    global _icon_cache
+    if not _icon_cache:
+        try:
+            _icon_cache = yoto("GET", "/media/displayIcons/user/yoto").get(
+                "displayIcons", []
+            )
+        except Exception as e:
+            app.logger.warning("could not fetch public icons: %s", e)
+    return _icon_cache
+
+
+def _words(text):
+    return {w for w in re.findall(r"[a-z]{3,}", text.lower())} - TITLE_NOISE
+
+
+def icon_label(icon):
+    """Whatever human-readable text this icon carries, for matching against."""
+    parts = [icon.get(k) for k in ("title", "name", "displayIconName")]
+    parts += icon.get("publicTags") or []
+    return " ".join(str(p) for p in parts if p)
+
+
+def pick_icon(title, icons):
+    """Best keyword overlap between the track title and an icon's label.
+
+    Falls back to a random icon so chapters stay visually distinct, and to the
+    default icon if the list came back empty."""
+    if not icons:
+        return DEFAULT_ICON
+    wanted = _words(title)
+    best, best_score = None, 0
+    for icon in icons:
+        score = len(wanted & _words(icon_label(icon)))
+        if score > best_score:
+            best, best_score = icon, score
+    chosen = best or random.choice(icons)
+    return f"yoto:#{chosen['mediaId']}"
+
+
+def build_chapter(index, title, sha, info, icon=DEFAULT_ICON):
     key = f"{index:03d}"
     label = str(index)
     track = {
@@ -195,14 +260,14 @@ def build_chapter(index, title, sha, info):
         "channels": info.get("channels", "stereo"),
         "type": "audio",
         "format": "opus",  # Yoto always transcodes to Opus; saying "mp3" breaks playback
-        "display": {"icon16x16": DEFAULT_ICON},
+        "display": {"icon16x16": icon},
     }
     return {
         "key": key,
         "title": title,
         "overlayLabel": label,
         "tracks": [track],
-        "display": {"icon16x16": DEFAULT_ICON},
+        "display": {"icon16x16": icon},
     }
 
 
@@ -216,11 +281,14 @@ def run_job(url):
                 raise RuntimeError("no downloadable audio found in that playlist")
             set_job(total=len(tracks), message=f"downloaded {len(tracks)} tracks")
 
+            icons = public_icons()
             chapters = []
             for i, (title, path) in enumerate(tracks, start=1):
                 set_job(message=f"uploading {i}/{len(tracks)}: {title}")
                 sha, info = upload_audio(path)
-                chapters.append(build_chapter(i, title, sha, info))
+                chapters.append(
+                    build_chapter(i, title, sha, info, pick_icon(title, icons))
+                )
                 path.unlink(missing_ok=True)
                 set_job(done=i)
 
@@ -332,7 +400,11 @@ def status():
 
 @app.get("/healthz")
 def healthz():
-    return jsonify(ok=True, authed=bool(_tokens.get("refresh_token")))
+    return jsonify(
+        ok=True,
+        authed=bool(_tokens.get("refresh_token")),
+        scope=_tokens.get("scope"),
+    )
 
 
 _tokens = _load_tokens()

@@ -30,7 +30,7 @@ FROM gcr.io/distroless/python3-debian12:nonroot
 COPY --from=deps /deps /deps
 COPY --from=deno /usr/local/bin/deno /usr/local/bin/deno
 COPY --from=layout --chown=nonroot:nonroot /config /config
-COPY --chown=nonroot:nonroot app.py gunicorn.conf.py /app/
+COPY --chown=nonroot:nonroot app.py gunicorn.conf.py retrofit_icons.py /app/
 COPY --chown=nonroot:nonroot templates/ /app/templates/
 
 WORKDIR /app

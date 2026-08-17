@@ -1,0 +1,26 @@
+version: '3'
+
+# Tasks only exist for commands that aren't obvious. Plain `docker compose`
+# covers the rest.
+#
+# The icon tasks use `run --rm` rather than `exec`, so they work whether or not
+# the service is up. The image entrypoint is python3, so a script path is enough.
+tasks:
+  up:
+    desc: Build and run the service
+    cmds:
+      - docker compose up --build
+
+  icons:
+    desc: "No args lists your cards. `task icons -- <cardId>` dry-runs, add --apply to write."
+    cmds:
+      - docker compose run --rm send-to-yoto /app/retrofit_icons.py {{.CLI_ARGS}}
+
+  reauth:
+    desc: Forget the saved login, so the next one re-grants scopes
+    cmds:
+      # Distroless: no rm, no shell. Python is the only executable in the image.
+      - >
+        docker compose run --rm send-to-yoto -c
+        "from pathlib import Path; Path('/config/tokens.json').unlink(missing_ok=True)"
+      - echo "reconnect at http://localhost:8080"

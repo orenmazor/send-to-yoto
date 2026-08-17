@@ -30,6 +30,13 @@ Built for `linux/amd64` and `linux/arm64`. The arm64 leg runs under QEMU; if you
 only deploy on amd64, drop that platform and the `setup-qemu-action` step from
 `.github/workflows/docker.yml`.
 
+## Tasks
+
+`task up` runs it. `task icons` lists your cards, `task icons -- <cardId>`
+dry-runs an icon backfill on one, and `task icons -- <cardId> --apply` writes it.
+`task reauth` forgets the saved login, which you only need if the scope set
+changes. Everything else is plain `docker compose`.
+
 ## Configuration
 
 All configuration is environment variables; see `.env.example`. Nothing is read
@@ -65,6 +72,14 @@ URLs. The two must match exactly or the token exchange fails.
   "The page needs to be reloaded"); and deno itself must be **>= 2.3.0** or
   yt-dlp logs `deno-x.y.z (unsupported)` and silently falls back to no runtime.
   If extraction starts failing, bump all three before debugging anything else.
+- **Icons are matched, not random.** Yoto publishes a list of icons every account
+  can reference by `mediaId`, so there's nothing to upload. Each track's title is
+  word-matched against the icon labels, falling back to a random icon so chapters
+  stay distinguishable, then to a fixed default if the list can't be fetched.
+- **Scopes are one set, not two.** `user:content:view` is granted automatically
+  alongside `user:content:manage`, so requesting it buys no extra privilege and
+  lets the icon backfill read cards. A token keeps the scopes it was minted with
+  even across refreshes — `/healthz` reports them, and `task reauth` re-grants.
 - **One job at a time, in memory.** No queue, no database. A second submit while
   a job runs returns 409. If that becomes annoying, add a queue then — not now.
 - **Single gunicorn worker.** Job state is a process-local dict, so scaling out
