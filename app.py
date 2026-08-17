@@ -281,7 +281,7 @@ def run_job(url):
             icons = public_icons()
             chapters = []
             for i, (title, path) in enumerate(tracks, start=1):
-                set_job(message=f"uploading {i}/{len(tracks)}: {title}")
+                set_job(message=f"uploading {title}")
                 sha, info = upload_audio(path)
                 chapters.append(
                     build_chapter(i, title, sha, info, pick_icon(title, icons))

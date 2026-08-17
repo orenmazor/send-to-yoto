@@ -4,6 +4,8 @@ Paste a YouTube playlist URL into a web form. The service downloads each video's
 audio in order, uploads it to your Yoto account, and creates a new MYO playlist.
 Audio is written to a temp directory and deleted as soon as each file is uploaded.
 
+![The whole UI: a URL field, a Send to Yoto button, and a one-line status with a progress bar showing which track is uploading](sample.png)
+
 ## Run it
 
 1. Create a **Confidential Client** at https://dashboard.yoto.dev/ and set its
