@@ -32,10 +32,8 @@ only deploy on amd64, drop that platform and the `setup-qemu-action` step from
 
 ## Tasks
 
-`task up` runs it. `task icons` lists your cards, `task icons -- <cardId>`
-dry-runs an icon backfill on one, and `task icons -- <cardId> --apply` writes it.
-`task reauth` forgets the saved login, which you only need if the scope set
-changes. Everything else is plain `docker compose`.
+`task up` runs it. `task reauth` forgets the saved login, which you only need if
+the scope set changes. Everything else is plain `docker compose`.
 
 ## Configuration
 
@@ -76,10 +74,14 @@ URLs. The two must match exactly or the token exchange fails.
   can reference by `mediaId`, so there's nothing to upload. Each track's title is
   word-matched against the icon labels, falling back to a random icon so chapters
   stay distinguishable, then to a fixed default if the list can't be fetched.
-- **Scopes are one set, not two.** `user:content:view` is granted automatically
-  alongside `user:content:manage`, so requesting it buys no extra privilege and
-  lets the icon backfill read cards. A token keeps the scopes it was minted with
-  even across refreshes — `/healthz` reports them, and `task reauth` re-grants.
+- **Write-only scopes.** The service creates playlists and never reads one back,
+  so `user:content:manage` is all it asks for. Reading a card needs
+  `user:content:view` as well; there was briefly a script to backfill icons onto
+  existing cards, and dropping it took that scope with it. A token keeps the
+  scopes it was minted with even across refreshes, which is invisible and easy to
+  misdiagnose — `/healthz` reports them, and `task reauth` forces a re-grant.
+- **Icons are set at import only.** There's no path to change a playlist after
+  it's created; make a new one, or edit it in the Yoto app.
 - **One job at a time, in memory.** No queue, no database. A second submit while
   a job runs returns 409. If that becomes annoying, add a queue then — not now.
 - **Single gunicorn worker.** Job state is a process-local dict, so scaling out

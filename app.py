@@ -27,11 +27,8 @@ CLIENT_ID = os.environ.get("YOTO_CLIENT_ID")
 # Only set this for a Confidential Client. Public clients authenticate with PKCE
 # alone and must not send a secret.
 CLIENT_SECRET = os.environ.get("YOTO_CLIENT_SECRET")
-# user:content:view is granted automatically alongside user:content:manage, so
-# asking for it costs no extra privilege and lets us read cards back.
-SCOPES = os.environ.get(
-    "YOTO_SCOPES", "offline_access user:content:manage user:content:view"
-)
+# The upload path only ever writes, so this is the minimum that works.
+SCOPES = os.environ.get("YOTO_SCOPES", "offline_access user:content:manage")
 TOKEN_FILE = os.environ.get("YOTO_TOKEN_FILE")  # optional, for surviving restarts
 # Used only when the public icon list can't be fetched or matched.
 DEFAULT_ICON = os.environ.get(
