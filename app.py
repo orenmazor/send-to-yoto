@@ -145,6 +145,10 @@ def download_playlist(url, workdir):
         "no_warnings": True,
         "ignoreerrors": True,
         "playlistend": MAX_TRACKS,
+        # YouTube 403s full media downloads from yt-dlp's default player client
+        # (android_vr/visionos as of Oct 2026); the first ~10KB succeeds, then
+        # the rest is refused. mweb downloads every track. Revisit if 403s return.
+        "extractor_args": {"youtube": {"player_client": ["mweb"]}},
         # No js_runtimes here on purpose: yt-dlp enables deno by default and
         # finds the one vendored in the image. Passing it explicitly needs a
         # dict, not a list, and buys nothing.
